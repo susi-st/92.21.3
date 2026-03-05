@@ -40,7 +40,7 @@
             transition: all 0.3s;
         }
 
-        /* 答案框 Slot 樣式 (針對流程配對) */
+        /* 答案框 Slot 樣式 (針對流程配對與分類) */
         .flow-slot-box {
             width: 150px;
             height: 100px;
@@ -56,12 +56,28 @@
             transition: background-color 0.2s;
         }
 
+        /* 分類題型的 Slot 需要大一點來容納多個標籤 */
+        .category-slot-box {
+            min-height: 160px;
+            background-color: #F9FAFB;
+            border: 2px dashed #E5E7EB;
+            border-radius: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            position: relative;
+            padding: 20px 10px 10px 10px;
+            transition: background-color 0.2s;
+        }
+
         .slot .draggable {
-            margin: 0;
+            margin: 4px;
             font-size: 0.9rem;
             padding: 6px 12px;
             box-shadow: none;
-            width: 90%;
+            width: auto;
+            min-width: 80px;
             text-align: center;
         }
 
@@ -121,7 +137,7 @@
         const gasUrl = "https://script.google.com/macros/s/AKfycbyWwAxUvldPxAAX75f0n6D4_pL5rvnEdxthdHYfpFXydwBtoP44f4Dzq61Dne6BnZ7J/exec";
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'net3-quiz-final';
         
-        // 題目資料庫
+        // 題目資料庫 (共 12 題)
         const questions = [
             {
                 type: 1, 
@@ -131,7 +147,7 @@
                 shuffleOnWrong: true, randomOrder: true
             },
             {
-                type: 3, // 流程配對
+                type: 3, 
                 title: "請依網域名稱的組成結構順序排列（由左至右）",
                 flow: ["第一層", "第二層", "第三層", "第四層"],
                 items: [
@@ -173,7 +189,7 @@
                 shuffleOnWrong: true, randomOrder: true
             },
             {
-                type: 4, // 分類配對題
+                type: 4, // 分類配對
                 title: "請配對以下的網域類別：",
                 categories: [
                     { id: 'C', name: '政府機關' },
@@ -210,7 +226,7 @@
                 shuffleOnWrong: true, randomOrder: true
             },
             {
-                type: 4, 
+                type: 4, // 分類配對 (IM vs Email)
                 title: "請根據「即時通訊（如 LINE）」與「電子郵件（如 Gmail）」的特性進行分類：",
                 categories: [
                     { id: 'A', name: '分類 A：即時通訊' },
@@ -319,7 +335,6 @@
                 ${q.hint ? `<p class="text-blue-500 text-sm mb-6 ml-11"><i class="fas fa-info-circle mr-1"></i>${q.hint}</p>` : '<div class="mb-6"></div>'}
             `;
 
-            // 單選 & 複選
             if (q.type === 1 || q.type === 11) {
                 let opts = [...q.options];
                 if (q.randomOrder) opts.sort(() => Math.random() - 0.5);
@@ -352,7 +367,6 @@
                 });
                 content.appendChild(grid);
             } 
-            // 拖曳填空
             else if (q.type === 2) {
                 const wrapper = document.createElement('div');
                 wrapper.className = "ml-11 flex flex-col items-center";
@@ -379,12 +393,11 @@
                 wrapper.appendChild(itemContainer);
                 content.appendChild(wrapper);
             }
-            // 流程配對 (修改為水平一列與交換邏輯)
             else if (q.type === 3) {
                 const wrapper = document.createElement('div');
                 wrapper.className = "flex flex-col space-y-12 items-center mt-6 ml-11";
                 const slotContainer = document.createElement('div');
-                slotContainer.className = "flex flex-row flex-wrap justify-center gap-4 w-full"; // 水平排列
+                slotContainer.className = "flex flex-row flex-wrap justify-center gap-4 w-full";
                 
                 q.flow.forEach(step => {
                     const box = document.createElement('div');
@@ -395,7 +408,7 @@
                     `;
                     const slot = box.querySelector('.slot');
                     box.ondragover = e => e.preventDefault();
-                    box.ondrop = e => handleDrop(e, slot, false); // 修改：傳入交換邏輯
+                    box.ondrop = e => handleDrop(e, slot, false); // 單一容納 (LIFO)
                     slotContainer.appendChild(box);
                 });
 
@@ -404,7 +417,6 @@
                 wrapper.appendChild(itemContainer);
                 content.appendChild(wrapper);
             }
-            // 分類配對
             else if (q.type === 4) {
                 const wrapper = document.createElement('div');
                 wrapper.className = "flex flex-col space-y-12 items-center mt-6 ml-11";
@@ -412,7 +424,7 @@
                 slotContainer.className = "grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl";
                 q.categories.forEach(cat => {
                     const box = document.createElement('div');
-                    box.className = "bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl p-4 flex flex-col items-center justify-start relative min-h-[140px]";
+                    box.className = "category-slot-box";
                     box.innerHTML = `<span class="absolute -top-3 left-4 bg-gray-400 text-white px-3 py-0.5 rounded-full text-xs">${cat.name}</span>
                                     <div class="slot w-full h-full flex flex-wrap items-start justify-center text-gray-400 text-sm mt-2" data-cat-id="${cat.id}">置於此處</div>`;
                     const slot = box.querySelector('.slot');
@@ -427,7 +439,7 @@
             }
         }
 
-        // 通用拖曳處理函數 (含交換邏輯)
+        // 修改後的拖曳處理函數
         function handleDrop(e, slot, isFill, allowMultiple = false) {
             e.preventDefault();
             const id = e.dataTransfer.getData('text');
@@ -437,15 +449,19 @@
 
             const itemSource = document.getElementById('item-source');
 
-            // 如果不允許複數且已有東西
-            if (!allowMultiple && slot.children.length > 0) {
+            // 如果不允許複數且已有標籤 (實現交換邏輯 LIFO)
+            if (!allowMultiple && slot.querySelector('.draggable')) {
                 const existing = slot.querySelector('.draggable');
                 if (existing) {
-                    itemSource.appendChild(existing); // 舊的擠回來源 (LIFO)
+                    itemSource.appendChild(existing);
                 }
             }
 
-            slot.innerHTML = ''; // 清空提示文字
+            // 重要修正：清空提示文字，但若允許多重則不應清空 innerHTML (避免刪掉已放入的標籤)
+            if (slot.innerText.trim() === '置於此處') {
+                slot.innerHTML = '';
+            }
+
             slot.appendChild(draggedEl);
         }
 
@@ -460,9 +476,12 @@
                 const safeId = id.replace(/[^a-zA-Z0-9]/g, '_');
                 const el = document.getElementById(`drag-${safeId}`);
                 if (el) container.appendChild(el);
-                // 檢查是否所有 slot 都空了，如果是，加回提示字
+                
+                // 檢查是否所有 slot 都空了，若是則加回提示字
                 document.querySelectorAll('.slot').forEach(s => {
-                    if (s.children.length === 0 && !s.classList.contains('fill-slot')) s.innerText = '置於此處';
+                    if (s.children.length === 0 && !s.classList.contains('fill-slot')) {
+                        s.innerText = '置於此處';
+                    }
                 });
             };
 
@@ -514,10 +533,12 @@
                     const catId = slot.dataset.catId;
                     const items = slot.querySelectorAll('.draggable');
                     if (q.type === 3) {
-                        if (!items[0] || q.answer[catId] !== items[0].dataset.id) isCorrect = false;
+                        const item = items[0];
+                        if (!item || q.answer[catId] !== item.dataset.id) isCorrect = false;
                     } else {
                         items.forEach(it => { if (it.dataset.target !== catId) isCorrect = false; });
-                        if (items.length !== q.items.filter(it => it.target === catId).length) isCorrect = false;
+                        const expectedCount = q.items.filter(it => it.target === catId).length;
+                        if (items.length !== expectedCount) isCorrect = false;
                     }
                 });
             }
