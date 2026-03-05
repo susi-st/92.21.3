@@ -22,7 +22,7 @@
         .option-card.selected {
             border-color: #FFB7C5;
             background-color: #FFF0F5;
-            transform: scale(1.02);
+            transform: scale(1.01);
         }
 
         /* 拖曳填空框樣式 */
@@ -197,13 +197,32 @@
                 let opts = [...q.options]; if (q.randomOrder) opts.sort(() => Math.random() - 0.5);
                 const grid = document.createElement('div'); grid.className = "space-y-4 ml-11";
                 const colors = ['bg-pink-50', 'bg-blue-50', 'bg-yellow-50', 'bg-green-50'];
+                
+                // 設定形狀：單選圓形，複選方框
+                const markerShape = q.type === 1 ? "rounded-full" : "rounded";
+
                 opts.forEach((opt, idx) => {
                     const btn = document.createElement('button');
                     btn.className = "option-card w-full text-left p-5 rounded-2xl border-2 border-transparent transition-all flex items-center hover:shadow-md " + colors[idx % 4];
-                    btn.innerHTML = `<div class="w-6 h-6 rounded border-2 border-pink-200 mr-4 flex-shrink-0 flex items-center justify-center check-mark"><i class="fas fa-check text-white text-xs opacity-0"></i></div><span class="text-gray-700 font-medium">${opt}</span>`;
+                    btn.innerHTML = `
+                        <div class="w-6 h-6 ${markerShape} border-2 border-pink-200 mr-4 flex-shrink-0 flex items-center justify-center check-mark">
+                            <i class="fas fa-check text-white text-xs opacity-0"></i>
+                        </div>
+                        <span class="text-gray-700 font-medium">${opt}</span>`;
+                    
                     btn.onclick = () => {
-                        if (q.type === 1) { grid.querySelectorAll('.option-card').forEach(b => { b.classList.remove('selected', 'border-pink-400', 'bg-white'); b.querySelector('.check-mark').classList.remove('macaron-pink'); b.querySelector('i').classList.add('opacity-0'); }); }
-                        btn.classList.toggle('selected'); btn.classList.toggle('border-pink-400'); btn.classList.toggle('bg-white'); btn.querySelector('.check-mark').classList.toggle('macaron-pink'); btn.querySelector('i').classList.toggle('opacity-0');
+                        if (q.type === 1) { 
+                            grid.querySelectorAll('.option-card').forEach(b => { 
+                                b.classList.remove('selected', 'border-pink-400', 'bg-white'); 
+                                b.querySelector('.check-mark').classList.remove('macaron-pink'); 
+                                b.querySelector('i').classList.add('opacity-0'); 
+                            }); 
+                        }
+                        btn.classList.toggle('selected'); 
+                        btn.classList.toggle('border-pink-400'); 
+                        btn.classList.toggle('bg-white'); 
+                        btn.querySelector('.check-mark').classList.toggle('macaron-pink'); 
+                        btn.querySelector('i').classList.toggle('opacity-0');
                     };
                     grid.appendChild(btn);
                 });
@@ -320,7 +339,7 @@
                 slots.forEach(slot => {
                     const catId = slot.dataset.catId; const items = slot.querySelectorAll('.draggable');
                     if (q.type === 3) { const item = items[0]; if (!item || q.answer[catId] !== item.dataset.id) isCorrect = false; }
-                    else { items.forEach(it => { if (it.dataset.target !== catId) isCorrect = false; }); const expectedCount = q.items.filter(it => it.target === catId).length; if (items.length !== expectedCount) isCorrect = false; }
+                    else { items.forEach(it => { if (it.dataset.target !== catId) isCorrect = false; }); if (items.length !== q.items.filter(it => it.target === catId).length) isCorrect = false; }
                 });
             }
             if (isCorrect) { passed[currentIdx] = true; showSuccess(); }
@@ -342,37 +361,14 @@
             syncToGas(time);
         }
 
-        // 修改後的同步函數：精確匹配您的 GAS doPost 欄位定義
         async function syncToGas(duration) {
             const attemptsDetail = attempts.join(',');
             const score = Math.round((passed.filter(p => p).length / questions.length) * 100);
-            
-            const data = { 
-                date: new Date().toLocaleString('zh-TW'),
-                id: studentId, 
-                challenges: challengeCount, 
-                duration: duration + "秒", 
-                attemptsDetail: attemptsDetail,
-                totalScore: score
-            };
-            
-            let retries = 5;
-            let delay = 1000;
+            const data = { date: new Date().toLocaleString('zh-TW'), id: studentId, challenges: challengeCount, duration: duration + "秒", attemptsDetail: attemptsDetail, totalScore: score };
+            let retries = 5; let delay = 1000;
             while (retries > 0) {
-                try {
-                    await fetch(gasUrl, { 
-                        method: 'POST', 
-                        mode: 'no-cors', 
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data) 
-                    });
-                    break; 
-                } catch (e) {
-                    retries--;
-                    if (retries === 0) break;
-                    await new Promise(r => setTimeout(r, delay));
-                    delay *= 2;
-                }
+                try { await fetch(gasUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); break; } 
+                catch (e) { retries--; if (retries === 0) break; await new Promise(r => setTimeout(r, delay)); delay *= 2; }
             }
         }
 
