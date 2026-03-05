@@ -41,7 +41,7 @@
             overflow: visible;
         }
 
-        /* 答案框 Slot 樣式 (針對流程配對與分類) */
+        /* 答案框 Slot 樣式 (針對流程配對) */
         .flow-slot-box {
             width: 150px;
             height: 100px;
@@ -57,7 +57,7 @@
             transition: background-color 0.2s;
         }
 
-        /* 分類題型的 Slot 需要大一點來容納多個標籤 */
+        /* 分類題型的 Slot */
         .category-slot-box {
             min-height: 160px;
             background-color: #F9FAFB;
@@ -91,24 +91,22 @@
 </head>
 <body class="min-h-screen flex flex-col items-center p-4">
 
-    <!-- Header: 標題與進度管理 -->
+    <!-- Header -->
     <header class="w-full max-w-4xl bg-white rounded-3xl shadow-sm p-6 mb-6 flex flex-col md:flex-row justify-between items-center border border-pink-100">
         <div>
             <h1 class="text-2xl font-bold macaron-text">認識網路(3)</h1>
             <p class="text-gray-500 text-sm">網域名稱、網路服務應用</p>
         </div>
         <div id="progress-container" class="flex space-x-2 mt-4 md:mt-0 flex-wrap justify-center">
-            <!-- 進度圓圈 -->
         </div>
     </header>
 
-    <!-- Main Quiz Area: 題目主體 -->
+    <!-- Main Quiz Area -->
     <main id="quiz-container" class="w-full max-w-4xl bg-white rounded-3xl shadow-md p-8 min-h-[550px] flex flex-col relative border border-pink-50">
         <div id="question-content" class="flex-grow">
-            <!-- 題目內容 -->
         </div>
 
-        <!-- Footer: 狀態與檢查按鈕 -->
+        <!-- Footer -->
         <div id="quiz-footer" class="mt-8 flex justify-between items-center border-t border-pink-50 pt-6">
             <div id="status-msg" class="text-pink-400 font-medium"></div>
             <button id="check-btn" class="macaron-pink text-white px-8 py-3 rounded-2xl font-bold hover:opacity-90 transition-all shadow-md">
@@ -117,7 +115,7 @@
         </div>
     </main>
 
-    <!-- Modal: 提示彈窗 -->
+    <!-- Modal -->
     <div id="modal" class="fixed inset-0 bg-black bg-opacity-30 hidden items-center justify-center z-50 p-4">
         <div class="bg-white p-8 rounded-3xl max-w-sm w-full shadow-2xl text-center">
             <div class="text-4xl mb-4">⚠️</div>
@@ -126,7 +124,7 @@
         </div>
     </div>
 
-    <!-- Success Overlay: 答對特效 -->
+    <!-- Success Overlay -->
     <div id="success-overlay" class="fixed inset-0 flex items-center justify-center pointer-events-none opacity-0 transition-opacity duration-300 z-40">
         <div class="bg-white bg-opacity-90 p-10 rounded-full shadow-2xl scale-0 transition-transform duration-500">
             <span class="text-6xl">🌸</span>
@@ -257,22 +255,16 @@
             }
         }
 
-        // 修改後的拖曳處理函數：改用元件 ID 做為傳遞主體，解決內容重複產生的 ID 混淆
         function handleDrop(e, slot, allowMultiple) {
             e.preventDefault();
             const elId = e.dataTransfer.getData('text');
             const draggedEl = document.getElementById(elId);
             if (!draggedEl) return;
-
             const itemSource = document.getElementById('item-source');
-
-            // 如果不允許多個標籤，實現「交換/踢回」邏輯 (LIFO)
             if (!allowMultiple && slot.querySelector('.draggable')) {
                 const existing = slot.querySelector('.draggable');
                 if (existing) { itemSource.appendChild(existing); }
             }
-
-            // 清空「置於此處」提示文字
             if (slot.innerText.trim() === '置於此處') { slot.innerHTML = ''; }
             slot.appendChild(draggedEl);
         }
@@ -289,22 +281,18 @@
                 if (el) container.appendChild(el);
                 document.querySelectorAll('.slot').forEach(s => { if (s.children.length === 0 && !s.classList.contains('fill-slot')) s.innerText = '置於此處'; });
             };
-
             let list = [...ids]; list.sort(() => Math.random() - 0.5);
             list.forEach((id, i) => {
                 const el = document.createElement('div');
-                // 核心修正：使用題號+序號產生唯一的 DOM ID
                 el.id = `drag-q${currentIdx}-${i}`;
                 el.draggable = true;
                 el.className = "draggable macaron-light px-4 py-2 rounded-xl shadow-sm text-pink-700 font-bold border border-white text-sm";
-                
                 let displayText = id;
                 if (originalItems) {
                     const item = originalItems.find(it => it.id === id);
                     if (item && item.text) displayText = item.text;
                     if (item && item.target) el.dataset.target = item.target;
                 }
-                
                 el.innerText = displayText;
                 el.dataset.id = id;
                 el.ondragstart = e => e.dataTransfer.setData('text', el.id);
@@ -331,8 +319,8 @@
                 isCorrect = true;
                 slots.forEach(slot => {
                     const catId = slot.dataset.catId; const items = slot.querySelectorAll('.draggable');
-                    if (q.type === 3) { if (!items[0] || q.answer[catId] !== items[0].dataset.id) isCorrect = false; }
-                    else { items.forEach(it => { if (it.dataset.target !== catId) isCorrect = false; }); if (items.length !== q.items.filter(it => it.target === catId).length) isCorrect = false; }
+                    if (q.type === 3) { const item = items[0]; if (!item || q.answer[catId] !== item.dataset.id) isCorrect = false; }
+                    else { items.forEach(it => { if (it.dataset.target !== catId) isCorrect = false; }); const expectedCount = q.items.filter(it => it.target === catId).length; if (items.length !== expectedCount) isCorrect = false; }
                 });
             }
             if (isCorrect) { passed[currentIdx] = true; showSuccess(); }
@@ -354,9 +342,38 @@
             syncToGas(time);
         }
 
+        // 修改後的同步函數：精確匹配您的 GAS doPost 欄位定義
         async function syncToGas(duration) {
-            const data = { appId, studentId, date: new Date().toLocaleDateString(), challengeCount, duration, attempts: attempts.join(','), passed: passed.every(p => p) };
-            try { await fetch(gasUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(data) }); } catch (e) {}
+            const attemptsDetail = attempts.join(',');
+            const score = Math.round((passed.filter(p => p).length / questions.length) * 100);
+            
+            const data = { 
+                date: new Date().toLocaleString('zh-TW'),
+                id: studentId, 
+                challenges: challengeCount, 
+                duration: duration + "秒", 
+                attemptsDetail: attemptsDetail,
+                totalScore: score
+            };
+            
+            let retries = 5;
+            let delay = 1000;
+            while (retries > 0) {
+                try {
+                    await fetch(gasUrl, { 
+                        method: 'POST', 
+                        mode: 'no-cors', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data) 
+                    });
+                    break; 
+                } catch (e) {
+                    retries--;
+                    if (retries === 0) break;
+                    await new Promise(r => setTimeout(r, delay));
+                    delay *= 2;
+                }
+            }
         }
 
         function restartQuiz() { challengeCount++; currentIdx = 0; passed.fill(false); attempts.fill(0); startTime = new Date(); init(); }
